@@ -158,6 +158,14 @@ fun AppItemPage(
                 Spacer(modifier = Modifier.height(10.dp))
             }
             itemsIndexed(appRaw.groups, { i, g -> i.toString() + g.key }) { _, group ->
+                val subsConfig = subsConfigs.find { it.groupKey == group.key }
+                val groupEnable = getGroupRawEnable(
+                    group,
+                    subsConfig,
+                    groupToCategoryMap[group],
+                    categoryConfigs.find { c -> c.categoryKey == groupToCategoryMap[group]?.key }
+                )
+
                 Row(
                     modifier = Modifier
                         .background(
@@ -264,6 +272,19 @@ fun AppItemPage(
                                     expanded = false
                                 },
                             )
+                            if (subsConfig?.enable != null) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(text = "重置开关")
+                                    },
+                                    onClick = {
+                                        expanded = false
+                                        vm.viewModelScope.launchTry(Dispatchers.IO) {
+                                            DbSet.subsConfigDao.insert(subsConfig.copy(enable = null))
+                                        }
+                                    },
+                                )
+                            }
                             if (editable && subsItem != null && subsRaw != null) {
                                 DropdownMenuItem(
                                     text = {
@@ -274,7 +295,8 @@ fun AppItemPage(
                                         vm.viewModelScope.launchTry {
                                             mainVm.dialogFlow.waitResult(
                                                 title = "删除规则组",
-                                                text = "确定删除规则组 ${group.name} ?"
+                                                text = "确定删除规则组 ${group.name} ?",
+                                                error = true,
                                             )
                                             val newSubsRaw = subsRaw.copy(
                                                 apps = subsRaw.apps
@@ -303,14 +325,6 @@ fun AppItemPage(
                     }
 
                     Spacer(modifier = Modifier.width(10.dp))
-
-                    val groupEnable = getGroupRawEnable(
-                        group,
-                        subsConfigs.find { c -> c.groupKey == group.key },
-                        groupToCategoryMap[group],
-                        categoryConfigs.find { c -> c.categoryKey == groupToCategoryMap[group]?.key }
-                    )
-                    val subsConfig = subsConfigs.find { it.groupKey == group.key }
                     Switch(
                         checked = groupEnable, modifier = Modifier,
                         onCheckedChange = vm.viewModelScope.launchAsFn { enable ->
